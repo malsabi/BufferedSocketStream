@@ -64,7 +64,7 @@ namespace BufferedSocketStream.BufferManager
             {
                 throw new ArgumentOutOfRangeException(nameof(bufferCount), bufferCount, "Buffer count must be a positive integer value.");
             }
-               
+
             if (bufferLength <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(bufferLength), bufferLength, "Buffer length must be a positive integer value.");

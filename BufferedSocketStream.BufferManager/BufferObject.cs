@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace BufferedSocketStream.BufferManager
+﻿namespace BufferedSocketStream.BufferManager
 {
     /// <summary>
     /// <para>
@@ -107,10 +105,8 @@ namespace BufferedSocketStream.BufferManager
 
             if (length > (BufferSize - sourceIndex))
             {
-                throw new ArgumentOutOfRangeException("The length should below the size of the buffer.");
+                throw new ArgumentOutOfRangeException(nameof(length), "The length should below the size of the buffer.");
             }
-
-
 
             Array.Copy(sourceArray, sourceIndex, buffer, TotalWriteBytes, length);
             TotalWriteBytes += length;
@@ -140,7 +136,7 @@ namespace BufferedSocketStream.BufferManager
 
             if (length > (BufferSize - destinationIndex))
             {
-                throw new ArgumentOutOfRangeException("The length should below the size of the buffer.");
+                throw new ArgumentOutOfRangeException(nameof(length), "The length should below the size of the buffer.");
             }
 
             Array.Copy(buffer, TotalReadBytes, destinationArray, destinationIndex, length);
