@@ -21,6 +21,8 @@ namespace BufferedSocketStream.Server
         public SocketAsyncEventArgsPool ReadWritePool { get; private set; }
 
         public ServerConfiguration Configuration { get; private set; }
+
+        public BufferManager Buffer { get; private set; }
         #endregion
 
         #region "Events"
@@ -53,36 +55,36 @@ namespace BufferedSocketStream.Server
 
         public void Initialize(ServerConfiguration configuration)
         {
-            if (IsInitialized)
-            {
-                return;
-            }
             try
             {
-                Connections = new ConcurrentDictionary<string, IConnectionInfo>();
-                ServerStatistics = new ServerStatistics();
-                SocketListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+                if (IsInitialized)
                 {
-                    LingerState = new LingerOption(true, configuration.ShutdownTimeout)
-                };
-                ReadWritePool = new SocketAsyncEventArgsPool(configuration.MaximumConnections);
-                for (int i = 0; i < configuration.MaximumConnections; i++)
-                {
-                    SocketAsyncEventArgs receiveAsyncEventArgs = new();
-                    receiveAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
-
-                    SocketAsyncEventArgs sendAsyncEventArgs = new();
-                    sendAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
-
-                    ReadWritePool.Push(new Tuple<SocketAsyncEventArgs, SocketAsyncEventArgs>(receiveAsyncEventArgs, sendAsyncEventArgs));
+                    throw new ServerListenerException("Failed to initialize since the server is already initialized.");
                 }
-                Configuration = configuration;
-                IsInitialized = true;
+                else
+                {
+                    Connections = new ConcurrentDictionary<string, IConnectionInfo>();
+                    ServerStatistics = new ServerStatistics();
+                    SocketListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)
+                    {
+                        LingerState = new LingerOption(true, configuration.ShutdownTimeout)
+                    };
+                    ReadWritePool = new SocketAsyncEventArgsPool(configuration.MaximumConnections);
+                    for (int i = 0; i < configuration.MaximumConnections; i++)
+                    {
+                        SocketAsyncEventArgs receiveAsyncEventArgs = new();
+                        receiveAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
+                        SocketAsyncEventArgs sendAsyncEventArgs = new();
+                        sendAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
+                        ReadWritePool.Push(new Tuple<SocketAsyncEventArgs, SocketAsyncEventArgs>(receiveAsyncEventArgs, sendAsyncEventArgs));
+                    }
+                    Configuration = configuration;
+                    IsInitialized = true;
+                }
             }
             catch (ServerListenerException ex)
             {
                 SetOnException(ex);
-                IsInitialized = false;
             }
         }
 
@@ -90,18 +92,21 @@ namespace BufferedSocketStream.Server
         {
             try
             {
-                if (IsInitialized == false)
+                if (!IsInitialized)
                 {
-                    throw new ServerListenerException("Cannot start listening since the server is not initialized.");
+                    throw new ServerListenerException("Failed on starting server listener since the server is not initialized.");
                 }
-                if (IsListening)
+                else if (IsListening)
                 {
-                    throw new ServerListenerException("Cannot start listening since the server is already listening.");
+                    throw new ServerListenerException("Failed on starting server listener since the server is already listening.");
                 }
-                SocketListener.Bind(Configuration.EndPoint);
-                SocketListener.Listen(Configuration.MaximumPendingConnections);
-                SetOnStartListener();
-                IsListening = true;
+                else
+                {
+                    SocketListener.Bind(Configuration.EndPoint);
+                    SocketListener.Listen(Configuration.MaximumPendingConnections);
+                    SetOnStartListener();
+                    IsListening = true;
+                }
             }
             catch (ServerListenerException ex)
             {
@@ -113,15 +118,18 @@ namespace BufferedSocketStream.Server
         {
             try
             {
-                if (IsInitialized == false)
+                if (!IsInitialized)
                 {
                     throw new ServerListenerException("Failed on stopping server listener since the server is not initialized.");
                 }
-                if (IsListening == false)
+                else if (!IsListening)
                 {
                     throw new ServerListenerException("Failed on stopping server listener since the server is already not listening.");
                 }
-                SocketListener.Shutdown(SocketShutdown.Both);
+                else
+                {
+                    SocketListener.Shutdown(SocketShutdown.Both);
+                }
             }
             catch (ServerListenerException ex)
             {
@@ -140,26 +148,29 @@ namespace BufferedSocketStream.Server
         {
             try
             {
-                if (IsInitialized == false)
+                if (!IsInitialized)
                 {
                     throw new ServerListenerException("Cannot start accepting connections since the server is not initialized.");
                 }
-                if (IsListening == false)
+                else if (!IsListening)
                 {
                     throw new ServerListenerException("Cannot start accepting connections since the server is not listening.");
                 }
-                if (acceptAsyncEventArgs == null)
-                {
-                    acceptAsyncEventArgs = new SocketAsyncEventArgs();
-                    acceptAsyncEventArgs.Completed += OnAcceptAsyncCompleted;
-                }
                 else
                 {
-                    acceptAsyncEventArgs.AcceptSocket = null;
-                }
-                if (SocketListener.AcceptAsync(acceptAsyncEventArgs) == false)
-                {
-                    ProcessAccept(acceptAsyncEventArgs);
+                    if (acceptAsyncEventArgs == null)
+                    {
+                        acceptAsyncEventArgs = new SocketAsyncEventArgs();
+                        acceptAsyncEventArgs.Completed += OnAcceptAsyncCompleted;
+                    }
+                    else
+                    {
+                        acceptAsyncEventArgs.AcceptSocket = null;
+                    }
+                    if (!SocketListener.AcceptAsync(acceptAsyncEventArgs))
+                    {
+                        ProcessAccept(acceptAsyncEventArgs);
+                    }
                 }
             }
             catch (ServerListenerException ex)
@@ -174,17 +185,50 @@ namespace BufferedSocketStream.Server
             {
                 if (Connections == null)
                 {
-                    throw new ServerListenerException("Cannot broad cast the message since their is no active connections available.");
+                    throw new ServerListenerException("Failed on broad casting the message since their is no active connections available.");
                 }
-                foreach (KeyValuePair<string, IConnectionInfo> pair in Connections)
+                else
                 {
-                    pair.Value.SendAsync(message);
+                    foreach (KeyValuePair<string, IConnectionInfo> pair in Connections)
+                    {
+                        pair.Value.SendAsync(message);
+                    }
                 }
             }
             catch (ServerListenerException ex)
             {
                 SetOnException(ex);
             }
+        }
+
+        public IConnectionInfo GetClient(string Id)
+        {
+            try
+            {
+                if (Connections == null || Connections.IsEmpty)
+                {
+                    throw new ServerListenerException("Failed on getting the client since their is no active connections available.");
+                }
+                if (!Connections.TryGetValue(Id, out IConnectionInfo result))
+                {
+                    throw new ServerListenerException(string.Format("Could not find a client with the following id[{0}].", Id));
+                }
+                return result;
+            }
+            catch (ServerListenerException ex)
+            {
+                SetOnException(ex);
+                return default;
+            }
+        }
+
+        public void AddConnectionToBlacklist(IConnectionInfo connection)
+        {
+
+        }
+
+        public void RemoveConnectionFromBlacklist(IConnectionInfo connection)
+        {
         }
 
         public void Dispose()
@@ -223,7 +267,7 @@ namespace BufferedSocketStream.Server
         {
             try
             {
-                if (HandleClosedConnection(connection) == false)
+                if (!HandleClosedConnection(connection))
                 {
                    throw new ServerListenerException("Failed to handle closing the connection.");
                 }
@@ -238,11 +282,13 @@ namespace BufferedSocketStream.Server
         private void SetOnConnectionMessageReceived(IConnectionInfo connection, byte[] message, int messageLength)
         {
             OnConnectionMessageReceived?.Invoke(this, connection, message, messageLength);
+            ServerStatistics.CurrentTotalBytesReceived += messageLength;
         }
 
         private void SetOnConnectionMessageSent(IConnectionInfo connection, byte[] message, int messageLength)
         {
             OnConnectionMessageSent?.Invoke(this, connection, message, messageLength);
+            ServerStatistics.CurrentTotalBytesSent += messageLength;
         }
 
         private void SetOnConnectionException(ConnectionInfoException ex)
@@ -252,11 +298,20 @@ namespace BufferedSocketStream.Server
 
         private void OnAcceptAsyncCompleted(object sender, SocketAsyncEventArgs e)
         {
-            switch (e.LastOperation)
+            try
             {
-                case SocketAsyncOperation.Accept:
-                    ProcessAccept(e);
-                    break;
+                switch (e.LastOperation)
+                {
+                    case SocketAsyncOperation.Accept:
+                        ProcessAccept(e);
+                        break;
+                    default:
+                        throw new ServerListenerException("The last operation completed on the socket was not an accept operation.");
+                }
+            }
+            catch (ServerListenerException ex)
+            {
+                SetOnException(ex);
             }
         }
         #endregion
@@ -273,7 +328,7 @@ namespace BufferedSocketStream.Server
                 Socket handle = e.AcceptSocket;
                 if (handle == null)
                 {
-                    throw new ServerListenerException("Could not get a socket instance from the incoming connection.");
+                    throw new ServerListenerException("Could not get a socket instance from the accepted connection.");
                 }
                 Tuple<SocketAsyncEventArgs, SocketAsyncEventArgs> item = ReadWritePool.Pop();
                 if (item == null)
@@ -281,11 +336,14 @@ namespace BufferedSocketStream.Server
                     throw new ServerListenerException("Could not retrieve a socket operation from the pool.");
                 }
                 IConnectionInfo connection = new ConnectionInfo(handle, item);
-                if (HandleNewConnection(connection) == false)
+                if (!HandleNewConnection(connection))
                 {
                     throw new ConnectionInfoException(connection, "Failed to add the new connection into the connections list.");
                 }
-                SetOnConnectionEstablished(connection);
+                else
+                {
+                    SetOnConnectionEstablished(connection);
+                }
             }
             catch (ConnectionInfoException ex)
             {
@@ -305,8 +363,10 @@ namespace BufferedSocketStream.Server
             {
                 connection.OnMessageReceived += SetOnConnectionMessageReceived;
                 connection.OnMessageSent += SetOnConnectionMessageSent;
+                connection.OnException += SetOnConnectionException;
                 connection.OnClosed += SetOnConnectionClosed;
                 connection.StartReceiving();
+                ServerStatistics.CurrentEstablishedConnections += 1;
                 return true;
             }
             return false;
@@ -318,11 +378,13 @@ namespace BufferedSocketStream.Server
             {
                 connectionToRemove.OnMessageReceived -= SetOnConnectionMessageReceived;
                 connectionToRemove.OnMessageSent -= SetOnConnectionMessageSent;
+                connection.OnException -= SetOnConnectionException;
                 connectionToRemove.OnClosed -= SetOnConnectionClosed;
                 if (connectionToRemove.ConnectionAsyncEventArgs != null)
                 {
                     ReadWritePool.Push(connectionToRemove.ConnectionAsyncEventArgs);
                 }
+                ServerStatistics.CurrentEstablishedConnections -= 1;
                 return true;
             }
             return false;

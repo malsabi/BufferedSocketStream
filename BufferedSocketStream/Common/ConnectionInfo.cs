@@ -1,17 +1,12 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using BufferedSocketStream.Helpers;
-using BufferedSocketStream.Common.DataManagement;
+using BufferedSocketStream.Exceptions;
 
 namespace BufferedSocketStream.Common
 {
     public class ConnectionInfo : IConnectionInfo
     {
-        #region "Fields"
-        private SendDataManager sendDataManager;
-        private ReceiveDataManager receiveDataManager;
-        #endregion
-
         #region "Properties"
         public bool IsClosed { get; private set; }
 
@@ -36,6 +31,8 @@ namespace BufferedSocketStream.Common
         public event IConnectionInfo.OnMessageSentDelegate OnMessageSent;
 
         public event IConnectionInfo.OnClosedDelegate OnClosed;
+
+        public event IConnectionInfo.OnExceptionDelegate OnException;
         #endregion
 
         #region "Public Methods"
@@ -47,43 +44,78 @@ namespace BufferedSocketStream.Common
 
         public void Initialize(ConnectionConfiguration configuration)
         {
-            if (ConnectionAsyncEventArgs == null || Handle == null)
+            try
             {
-                return;
+                if (ConnectionAsyncEventArgs == null || Handle == null)
+                {
+                    throw new ConnectionInfoException(this, "Failed to initialize the connection, one of the arguments passed was null.");
+                }
+                else
+                {
+                    Id = Guid.NewGuid();
+                    EndPoint = (IPEndPoint)Handle.RemoteEndPoint;
+                    ReceiveAsyncEventArgs = ConnectionAsyncEventArgs.Item1;
+                    SendAsyncEventArgs = ConnectionAsyncEventArgs.Item2;
+                    receiveDataManager = new ReceiveDataManager(configuration, this, ReceiveAsyncEventArgs);
+                    sendDataManager = new SendDataManager(configuration, this, SendAsyncEventArgs);
+                    Configuration = configuration;
+                }
             }
-            IsClosed = false;
-            Id = Guid.NewGuid();
-            EndPoint = (IPEndPoint)Handle.RemoteEndPoint;
-            ReceiveAsyncEventArgs = ConnectionAsyncEventArgs.Item1;
-            ReceiveAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
-            SendAsyncEventArgs = ConnectionAsyncEventArgs.Item2;
-            SendAsyncEventArgs.SetBuffer(new byte[configuration.BufferSize], 0, configuration.BufferSize);
-            receiveDataManager = new ReceiveDataManager(configuration, this, ReceiveAsyncEventArgs);
-            sendDataManager = new SendDataManager(configuration, this, SendAsyncEventArgs);
-            Configuration = configuration;
+            catch (ConnectionInfoException ex)
+            {
+                SetOnException(ex);
+            }
         }
 
         public void StartReceiving()
         {
-            if (IsClosed == true || Handle == null || ReceiveAsyncEventArgs == null)
+            try
             {
-                return;
+                if (IsClosed)
+                {
+                    throw new ConnectionInfoException(this, "Cannot start receiving messages since the connection is closed.");
+                }
+                else if (ConnectionAsyncEventArgs == null || Handle == null)
+                {
+                    throw new ConnectionInfoException(this, "Failed to start receiving messages, one of the arguments passed was null.");
+                }
+                else
+                {
+                    receiveDataManager.HandleReceiveAsync();
+                }
             }
-            receiveDataManager.HandleReceiveAsync();
+            catch (ConnectionInfoException ex)
+            {
+                SetOnException(ex);
+            }
         }
 
         public void SendAsync(byte[] message)
         {
-            if (IsClosed == true || Handle == null || SendAsyncEventArgs == null)
+            try
             {
-                return;
+                if (IsClosed)
+                {
+                    throw new ConnectionInfoException(this, "Cannot send message since the connection is closed.");
+                }
+                else if (ConnectionAsyncEventArgs == null || Handle == null)
+                {
+                    throw new ConnectionInfoException(this, "Failed to send message, one of the arguments passed was null.");
+                }
+                else
+                {
+                    sendDataManager.HandleSendAsync(DataHelper.PrefixHeaderToMessage(message, Configuration.HeaderSize));
+                }
             }
-            sendDataManager.HandleSendAsync(DataHelper.PrefixHeaderToMessage(message, Configuration.HeaderSize));
+            catch (ConnectionInfoException ex)
+            {
+                SetOnException(ex);
+            }
         }
 
         public void Dispose()
         {
-            if (IsClosed == false)
+            if (!IsClosed)
             {
                 IsClosed = true;
                 receiveDataManager.ClearBufferQueue();
@@ -91,6 +123,10 @@ namespace BufferedSocketStream.Common
                 try
                 {
                     Handle.Shutdown(SocketShutdown.Both);
+                }
+                catch (ConnectionInfoException ex)
+                {
+                    SetOnException(ex);
                 }
                 finally
                 {
@@ -111,6 +147,11 @@ namespace BufferedSocketStream.Common
         internal void SetOnMessageSent(byte[] message, int messageLength)
         {
             OnMessageSent?.Invoke(this, message, messageLength);
+        }
+
+        internal void SetOnException(ConnectionInfoException ex)
+        {
+            OnException?.Invoke(ex);
         }
 
         internal void SetOnClosed()

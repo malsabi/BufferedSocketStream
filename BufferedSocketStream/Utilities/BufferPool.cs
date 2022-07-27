@@ -2,5 +2,8 @@
 {
     internal class BufferPool
     {
+        public BufferPool()
+        {
+        }
     }
 }

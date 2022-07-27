@@ -60,13 +60,14 @@ namespace BufferedSocketStream.Server
         /// <para><see cref="BufferSize"/> is set to 16KB.</para>
         /// <para><see cref="HeaderSize"/> is set to 4 bytes.</para>
         /// <para><see cref="LogsPath"/> is set to the current execution directory (./Logs.sqlite).</para>
+        /// <para><see cref="ShutdownTimeout"/> is set to 5 seconds or 5000 milliseconds. </para>
         /// </summary>
         public ServerConfiguration()
         {
             EndPoint = new IPEndPoint(IPAddress.Loopback, 1669);
             MaximumPendingConnections = 100;
             MaximumConnections = 500;
-            MaximumMessageSize = 1024 * 1024;
+            MaximumMessageSize = 1024 * 1024 * 1024;
             BufferSize = 1024 * 16;
             HeaderSize = 4;
             LogsPath = "./Logs.sqlite";

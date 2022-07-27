@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Sockets;
+using BufferedSocketStream.Exceptions;
 
 namespace BufferedSocketStream.Common
 {
@@ -29,6 +30,9 @@ namespace BufferedSocketStream.Common
 
         public delegate void OnMessageSentDelegate(IConnectionInfo connection, byte[] message, int messageLength);
         public event OnMessageSentDelegate OnMessageSent;
+
+        public delegate void OnExceptionDelegate(ConnectionInfoException ex);
+        public event OnExceptionDelegate OnException;
 
         public delegate void OnClosedDelegate(IConnectionInfo connection);
         public event OnClosedDelegate OnClosed;

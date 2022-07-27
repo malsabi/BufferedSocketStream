@@ -1,6 +1,7 @@
-﻿using BufferedSocketStream.Common;
+﻿using System.Net;
+using BufferedSocketStream.Common;
+using BufferedSocketStream.Exceptions;
 using BufferedSocketStream.Server;
-using System.Net;
 
 ServerListener serverListener = new ServerListener();
 serverListener.OnStartListener += ServerListener_OnStartListener;
@@ -11,6 +12,7 @@ serverListener.OnConnectionMessageReceived += ServerListener_OnConnectionMessage
 serverListener.OnConnectionMessageSent += ServerListener_OnConnectionMessageSent;
 serverListener.OnConnectionClosed += ServerListener_OnConnectionClosed;
 serverListener.OnConnectionException += ServerListener_OnConnectionException;
+
 serverListener.Initialize(new ServerConfiguration());
 serverListener.StartListener();
 serverListener.StartAccept(null);
@@ -51,7 +53,7 @@ void ServerListener_OnConnectionClosed(IServerListener sender, IConnectionInfo c
     Console.WriteLine("Connection[{0}] closed", connection.EndPoint);
 }
 
-void ServerListener_OnConnectionException(IServerListener sender, IConnectionInfo connection, Exception ex)
+void ServerListener_OnConnectionException(IServerListener sender, ConnectionInfoException ex)
 {
-    Console.WriteLine("Connection[{0}] exception: {1}", connection.EndPoint, ex.Message);
-}
+    Console.WriteLine("Connection[{0}] exception: {1}", ex.Connection.EndPoint, ex.Message);
+};

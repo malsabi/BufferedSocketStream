@@ -1,4 +1,5 @@
-﻿using BufferedSocketStream.Server;
+﻿using BufferedSocketStream.Client;
+using BufferedSocketStream.Server;
 
 namespace BufferedSocketStream.Common
 {
@@ -21,15 +22,18 @@ namespace BufferedSocketStream.Common
         public int HeaderSize { get; set; }
 
 
-        public ConnectionConfiguration(ServerConfiguration configuation)
+        public ConnectionConfiguration(ServerConfiguration configuration)
         {
-            MaximumMessageSize = configuation.MaximumMessageSize;
-            BufferSize = configuation.BufferSize;
-            HeaderSize = configuation.HeaderSize;
+            MaximumMessageSize = configuration.MaximumMessageSize;
+            BufferSize = configuration.BufferSize;
+            HeaderSize = configuration.HeaderSize;
         }
 
-        //public ConnectionConfiguration(ClientConfiguration configuration)
-        //{
-        //}
+        public ConnectionConfiguration(ClientConfiguration configuration)
+        {
+            MaximumMessageSize = configuration.MaximumMessageSize;
+            BufferSize = configuration.BufferSize;
+            HeaderSize = configuration.HeaderSize;
+        }
     }
 }

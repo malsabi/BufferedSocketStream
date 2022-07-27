@@ -60,6 +60,12 @@ namespace BufferedSocketStream.Server
         public void StartAccept(SocketAsyncEventArgs args);
 
         public void BroadCast(byte[] message);
+
+        public IConnectionInfo GetClient(string Id);
+
+        public void AddConnectionToBlacklist(IConnectionInfo connection);
+
+        public void RemoveConnectionFromBlacklist(IConnectionInfo connection);
         #endregion
     }
 }
